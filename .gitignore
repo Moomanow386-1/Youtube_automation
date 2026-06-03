@@ -1,0 +1,29 @@
+# Credentials & Secrets
+.env
+client_secrets.json
+token.pickle
+token.json
+*.pickle
+
+# Runtime data
+daily_log.json
+topic_history.json
+used_media.json
+
+# Generated output
+output/
+temp/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Claude Code internal
+.claude/
+
+# Windows
+Thumbs.db
+desktop.ini
