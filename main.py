@@ -35,7 +35,7 @@ def run_pipeline(topic: str):
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(f"TITLE: {data['title']}\n\n")
         f.write(f"DESCRIPTION:\n{data['description']}\n\n")
-        f.write(f"TAGS: {', '.join(data['tags'])}\n\n")
+        f.write(f"TAGS: {', '.join('#' + t.lstrip('#') for t in data['tags'])}\n\n")
         f.write(f"SCRIPT:\n{data['script']}")
     print(f"  Script saved: {script_file}")
 

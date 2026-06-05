@@ -24,7 +24,7 @@ def read_metadata(script_path: str):
         if line.startswith("TITLE:"):
             title = line.replace("TITLE:", "").strip()
         elif line.startswith("TAGS:"):
-            tags = [t.strip() for t in line.replace("TAGS:", "").split(",")]
+            tags = [t.strip().lstrip('#') for t in line.replace("TAGS:", "").split(",")]
     desc_start = content.find("DESCRIPTION:\n")
     script_start = content.find("SCRIPT:\n")
     if desc_start != -1:

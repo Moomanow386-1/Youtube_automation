@@ -432,16 +432,8 @@ def _build_background(topic: str, keywords: list[str], duration: float, output_p
 # ── Assemble ──────────────────────────────────────────────────────────────────
 
 def _assemble_video(bg_video: str, audio: str, title: str, duration: float, output: str):
-    safe_title = re.sub(r"[':,\\]", "", title)
-    title_overlay = (
-        f"drawtext=text='{safe_title}':"
-        f"fontsize=58:fontcolor=white:fontfile='C\\:/Windows/Fonts/arialbd.ttf':"
-        f"x=(w-text_w)/2:y=(h-text_h)/2:"
-        f"enable='between(t\\,0\\,5)':"
-        f"box=1:boxcolor=black@0.65:boxborderw=25"
-    )
     cmd = [FFMPEG, "-y", "-i", bg_video, "-i", audio,
-           "-shortest", "-t", str(duration), "-vf", title_overlay,
+           "-shortest", "-t", str(duration),
            "-map", "0:v", "-map", "1:a",
            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", output]

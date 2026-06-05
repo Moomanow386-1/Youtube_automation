@@ -75,7 +75,7 @@ Script preview: {script_text[:500]}
 
 Return ONLY a valid JSON object (no extra text, no markdown):
 {{
-  "title": "Clickbait YouTube title under 70 chars. Use power words like: The DARK Truth, What REALLY Happened, Nobody Talks About, The Secret, SHOCKING, They Lied, Hidden, Disturbing, The REAL Story. Example: 'The DARK Truth About Tutankhamun Nobody Tells You'",
+  "title": "Clickbait YouTube title under 70 chars. Pick ONE power phrase — vary them, never repeat the same phrase across videos: 'What REALLY Happened', 'Nobody Talks About', 'The Terrifying Secret', 'SHOCKING Truth', 'They Lied About', 'The Hidden Story', 'The Disturbing Reality', 'What History Forgot', 'The Untold Story', 'Historians Got Wrong', 'The Chilling Evidence', 'What They Don\\'t Want You To Know'. Avoid overusing \\'The DARK Truth\\'. Example: 'What REALLY Happened to Tutankhamun Nobody Tells You'",
   "description": "YouTube description 150-200 words. Start with a shocking hook sentence. Include main keywords naturally. End with call to action. Add 5 relevant hashtags at the bottom like #History #Mystery #TrueCrime",
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12","tag13","tag14","tag15"],
   "video_keywords": [
