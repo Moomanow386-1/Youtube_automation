@@ -20,28 +20,14 @@ if not os.path.exists("client_secrets.json"):
 
 print("Found client_secrets.json OK")
 print("Opening browser for Google login...")
-print("(If browser does not open, copy the URL from the terminal and open manually)")
 print()
 
 flow = InstalledAppFlow.from_client_secrets_file(
     "client_secrets.json",
-    SCOPES,
-    redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+    SCOPES
 )
 
-auth_url, _ = flow.authorization_url(prompt="consent")
-
-print("="*60)
-print("Open this URL in your browser:")
-print()
-print(auth_url)
-print()
-print("="*60)
-print("After login -> Allow -> copy the code shown and paste here:")
-code = input("Paste code here: ").strip()
-
-flow.fetch_token(code=code)
-creds = flow.credentials
+creds = flow.run_local_server(port=0, prompt="consent")
 
 with open("token.pickle", "wb") as f:
     pickle.dump(creds, f)
