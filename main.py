@@ -76,10 +76,15 @@ def run_pipeline(topic: str):
     print(f"  Script:    {script_file}")
     print(f"{'='*60}\n")
 
-    # Clean temp files
+    # Clean temp files (retry on Windows file-lock)
     if os.path.exists(config.TEMP_DIR):
-        shutil.rmtree(config.TEMP_DIR)
-        os.makedirs(config.TEMP_DIR)
+        for attempt in range(5):
+            try:
+                shutil.rmtree(config.TEMP_DIR)
+                break
+            except PermissionError:
+                time.sleep(2)
+        os.makedirs(config.TEMP_DIR, exist_ok=True)
 
     return video_path, thumb_path
 

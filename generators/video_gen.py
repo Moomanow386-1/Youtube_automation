@@ -428,18 +428,31 @@ def _build_background(topic: str, keywords: list[str], duration: float, output_p
     if result.returncode != 0:
         raise RuntimeError(f"Concat failed:\n{result.stderr[-400:]}")
 
+    # verify bg is long enough — if too short, loop it to fill duration
+    bg_dur = _get_duration(output_path)
+    if bg_dur < duration * 0.9:
+        print(f"  [warn] bg only {bg_dur:.0f}s, looping to fill {duration:.0f}s...")
+        looped = output_path.replace(".mp4", "_looped.mp4")
+        loop_cmd = [FFMPEG, "-y", "-stream_loop", "-1", "-i", output_path,
+                    "-t", str(duration + 2), "-c:v", "libx264", "-preset", "fast", "-crf", "24", looped]
+        subprocess.run(loop_cmd, capture_output=True)
+        os.replace(looped, output_path)
+
 
 # ── Assemble ──────────────────────────────────────────────────────────────────
 
 def _assemble_video(bg_video: str, audio: str, title: str, duration: float, output: str):
+    # no -shortest: rely on -t only so bg truncation doesn't cut audio
     cmd = [FFMPEG, "-y", "-i", bg_video, "-i", audio,
-           "-shortest", "-t", str(duration),
+           "-t", str(duration),
            "-map", "0:v", "-map", "1:a",
            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", output]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg assemble failed:\n{result.stderr[-600:]}")
+    final_dur = _get_duration(output)
+    print(f"  Final video: {final_dur:.1f}s ({final_dur/60:.1f} min)")
 
 
 def create_video(audio_path: str, srt_path: str, title: str, keywords: list[str], output_path: str) -> str:
