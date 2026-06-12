@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="30">
+  <title>Oracle VM Status</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #e6edf3; padding: 30px; }
+    h1 { color: #58a6ff; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: bold; }
+    .fail { background: #3b1f1f; color: #f85149; }
+    .success { background: #0d2818; color: #3fb950; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    td, th { border: 1px solid #30363d; padding: 8px 14px; }
+    th { background: #161b22; color: #58a6ff; }
+    tr:nth-child(even) { background: #161b22; }
+    .count { font-size: 48px; color: #f0883e; font-weight: bold; }
+    .label { color: #8b949e; font-size: 14px; }
+    .refresh { color: #6e7681; font-size: 12px; margin-top: 20px; }
+    .no-data { color: #f85149; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Oracle ARM VM — Auto Retry Status</h1>
+  <div id="summary"></div>
+  <table>
+    <thead><tr><th>#</th><th>Time</th><th>Result</th></tr></thead>
+    <tbody id="log"></tbody>
+  </table>
+  <p class="refresh">Auto-refresh ทุก 30 วินาที</p>
+
+  <script src="vm_data.js"></script>
+  <script>
+    if (typeof VM_LOG !== 'undefined' && VM_LOG.length > 0) {
+      const total = VM_LOG.length;
+      const last = VM_LOG[VM_LOG.length - 1];
+      const hasSuccess = VM_LOG.some(e => e.status === 'success');
+
+      const statusBadge = hasSuccess
+        ? '<span class="badge success">SUCCESS — VM Created!</span>'
+        : '<span class="badge fail">Out of capacity — waiting...</span>';
+
+      document.getElementById('summary').innerHTML = `
+        <div class="count">${total}</div>
+        <div class="label">attempts</div>
+        <div style="margin-top:12px">
+          Last try: <span style="color:#e6edf3">${last.time}</span> &nbsp;
+          Status: ${statusBadge}
+        </div>`;
+
+      const tbody = document.getElementById('log');
+      tbody.innerHTML = VM_LOG.slice(-20).reverse().map(e => {
+        const badge = e.status === 'success'
+          ? '<span class="badge success">success</span>'
+          : '<span class="badge fail">out of capacity</span>';
+        return `<tr><td>${e.attempt}</td><td>${e.time}</td><td>${badge}</td></tr>`;
+      }).join('');
+    } else {
+      document.getElementById('summary').innerHTML =
+        '<p class="no-data">ยังไม่มีข้อมูล — รอ retry script เขียน vm_data.js</p>';
+    }
+  </script>
+</body>
+</html>

@@ -9,6 +9,10 @@ token.json
 daily_log.json
 topic_history.json
 used_media.json
+data/
+logs/
+vm_retry_log.jsonl
+docs/vm_data.js
 
 # Generated output
 output/

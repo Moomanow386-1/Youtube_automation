@@ -15,9 +15,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 import config
 from main import run_pipeline
 from uploaders.youtube_upload import upload_video
+from generators.shorts_gen import cut_shorts
+from shorts_queue import add_series_to_queue, queue_stats
 
-LOG_FILE = "daily_log.json"
-TOPIC_HISTORY_FILE = "topic_history.json"
+LOG_FILE = "logs/daily_log.json"
+TOPIC_HISTORY_FILE = "data/topic_history.json"
 
 # ── Topic generation ───────────────────────────────────────────────────────────
 
@@ -63,6 +65,7 @@ def _load_history() -> list[str]:
 
 
 def _save_history(history: list[str]):
+    os.makedirs(os.path.dirname(TOPIC_HISTORY_FILE), exist_ok=True)
     with open(TOPIC_HISTORY_FILE, "w") as f:
         json.dump(history[-60:], f, indent=2)
 
@@ -101,6 +104,7 @@ Topic:"""
 # ── Log ────────────────────────────────────────────────────────────────────────
 
 def _log(entry: dict):
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     log = []
     if os.path.exists(LOG_FILE):
         with open(LOG_FILE, "r") as f:
@@ -164,6 +168,23 @@ def main():
               "video": video_path, "error": str(e)})
         print(f"Upload failed (video saved at {video_path}): {e}")
         sys.exit(1)
+
+    # ── Cut Shorts and add to upload queue ────────────────────────────────────
+    print(f"\n{'='*60}")
+    print("Cutting Shorts and queuing for daily upload...")
+    print(f"{'='*60}\n")
+
+    shorts_dir = os.path.join(config.OUTPUT_DIR, "shorts")
+    try:
+        short_paths = cut_shorts(video_path, shorts_dir)
+        added = add_series_to_queue(short_paths, title, description, tags)
+        stats = queue_stats()
+        _log({"date": today, "topic": topic, "status": "shorts_queued",
+              "count": added, "queue_pending": stats["pending"]})
+        print(f"  Queued {added} shorts. Queue now: {stats['pending']} pending total.")
+    except Exception as e:
+        _log({"date": today, "topic": topic, "status": "shorts_cut_failed", "error": str(e)})
+        print(f"Shorts cut/queue failed: {e}")
 
 
 if __name__ == "__main__":

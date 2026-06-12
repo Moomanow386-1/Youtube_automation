@@ -10,7 +10,7 @@ import config
 _FFMPEG_BIN = r"C:\Users\fusen\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin"
 FFMPEG = os.path.join(_FFMPEG_BIN, "ffmpeg.exe")
 FFPROBE = os.path.join(_FFMPEG_BIN, "ffprobe.exe")
-USED_MEDIA_FILE = "used_media.json"
+USED_MEDIA_FILE = "data/used_media.json"
 
 
 # ── Used media tracker (cross-video dedup) ────────────────────────────────────
