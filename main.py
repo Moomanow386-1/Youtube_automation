@@ -8,6 +8,7 @@ from generators.script_gen import generate_script
 from generators.tts_gen import generate_audio
 from generators.video_gen import create_video
 from generators.thumbnail_gen import generate_thumbnail
+from generators.topic_gen import pick_best_topic
 
 def sanitize_filename(text: str) -> str:
     text = text.replace("'", "").replace("'", "")
@@ -36,6 +37,10 @@ def run_pipeline(topic: str):
         f.write(f"TITLE: {data['title']}\n\n")
         f.write(f"DESCRIPTION:\n{data['description']}\n\n")
         f.write(f"TAGS: {', '.join('#' + t.lstrip('#') for t in data['tags'])}\n\n")
+        if data.get("pinned_comment"):
+            f.write(f"PINNED COMMENT:\n{data['pinned_comment']}\n\n")
+        if data.get("cta_script"):
+            f.write(f"END-SCREEN CTA (~10s spoken):\n{data['cta_script']}\n\n")
         f.write(f"SCRIPT:\n{data['script']}")
     print(f"  Script saved: {script_file}")
 
@@ -80,15 +85,21 @@ def run_pipeline(topic: str):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        topic = " ".join(sys.argv[1:])
+        if sys.argv[1] == "--auto":
+            print("YouTube Automation Pipeline — AUTO TOPIC MODE")
+            print("Picking best topic via AI...\n")
+            topic = pick_best_topic()
+        else:
+            topic = " ".join(sys.argv[1:])
     else:
         print("YouTube Automation Pipeline")
         print("Examples:")
         print("  python main.py \"The Lost City of Atlantis\"")
-        print("  python main.py \"Nikola Tesla's Forgotten Inventions\"")
+        print("  python main.py --auto   (AI picks best topic)")
         print()
-        topic = input("Enter topic: ").strip()
+        topic = input("Enter topic (or press Enter for AI auto-pick): ").strip()
         if not topic:
-            sys.exit(1)
+            print("Auto-picking topic...\n")
+            topic = pick_best_topic()
 
     run_pipeline(topic)

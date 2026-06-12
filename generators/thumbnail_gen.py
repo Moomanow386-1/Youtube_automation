@@ -91,12 +91,14 @@ def _apply_dark_overlay(img: Image.Image) -> Image.Image:
     img = img.resize((THUMB_W, THUMB_H), Image.LANCZOS)
     overlay = Image.new("RGBA", (THUMB_W, THUMB_H), (0, 0, 0, 0))
     draw_ov = ImageDraw.Draw(overlay)
-    for i in range(int(THUMB_H * 0.30), THUMB_H):
-        opacity = int(210 * ((i - THUMB_H * 0.30) / (THUMB_H * 0.70)))
+    # gradient only in bottom 35% — keeps image visible
+    fade_start = int(THUMB_H * 0.65)
+    for i in range(fade_start, THUMB_H):
+        opacity = int(185 * ((i - fade_start) / (THUMB_H - fade_start)))
         draw_ov.line([(0, i), (THUMB_W, i)], fill=(0, 0, 0, opacity))
-    # slight vignette on top
-    for i in range(0, int(THUMB_H * 0.20)):
-        opacity = int(80 * (1 - i / (THUMB_H * 0.20)))
+    # subtle vignette top
+    for i in range(0, int(THUMB_H * 0.12)):
+        opacity = int(50 * (1 - i / (THUMB_H * 0.12)))
         draw_ov.line([(0, i), (THUMB_W, i)], fill=(0, 0, 0, opacity))
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
@@ -116,34 +118,63 @@ def _wrap_title(title: str, font: ImageFont.FreeTypeFont, max_width: int) -> lis
     return lines
 
 
+def _shorten_for_thumbnail(title: str) -> str:
+    """Extract a punchy 4-6 word phrase from the title for the thumbnail."""
+    # remove common filler endings
+    title = re.sub(
+        r"\s*(Nobody Talks About|You've Never Heard|Nobody Tells You|What They Don't Want You To Know"
+        r"|and What It Means Today|The Full Story|Explained|Documentary)\s*",
+        "", title, flags=re.IGNORECASE
+    ).strip()
+    words = title.split()
+    if len(words) <= 5:
+        return title
+    # prefer keeping power words near the front
+    power = ["SHOCKING", "DARK", "REAL", "TERRIFYING", "HIDDEN", "SECRET",
+             "TRUTH", "REALLY", "CHILLING", "DISTURBING", "UNTOLD", "FORGOTTEN"]
+    # try to find a natural break at 4-5 words that includes a power word
+    for end in [5, 4, 6]:
+        candidate = " ".join(words[:end])
+        if any(p in candidate.upper() for p in power):
+            return candidate
+    return " ".join(words[:5])
+
+
 def _draw_title(draw: ImageDraw.ImageDraw, title: str, font_title: ImageFont.FreeTypeFont,
                 canvas_w: int, canvas_h: int):
-    max_text_w = canvas_w - 80
-    lines = _wrap_title(title.upper(), font_title, max_text_w)
-    line_h = 95
+    short_text = _shorten_for_thumbnail(title).upper()
+    max_text_w = canvas_w - 100
+    lines = _wrap_title(short_text, font_title, max_text_w)
+
+    # hard cap at 2 lines
+    if len(lines) > 2:
+        lines = lines[:2]
+        lines[-1] = lines[-1].rstrip() + "..."
+
+    line_h = 78
     total_h = len(lines) * line_h
-    y = canvas_h - total_h - 70
+    # position: bottom 28% of image
+    y = canvas_h - total_h - 52
 
     for line in lines:
         bbox = font_title.getbbox(line)
         lw = bbox[2] - bbox[0]
         x = (canvas_w - lw) // 2
 
-        # thick black shadow for depth
-        for dx in range(-4, 5):
-            for dy in range(-4, 5):
-                if abs(dx) + abs(dy) > 4:
-                    continue
-                draw.text((x + dx, y + dy), line, font=font_title, fill=(0, 0, 0))
+        # stroke shadow
+        for dx in range(-3, 4):
+            for dy in range(-3, 4):
+                if abs(dx) + abs(dy) <= 4:
+                    draw.text((x + dx, y + dy), line, font=font_title, fill=(0, 0, 0))
 
-        # yellow main text — high clickbait contrast
+        # yellow main text
         draw.text((x, y), line, font=font_title, fill=(255, 220, 0))
         y += line_h
 
     # red accent bar on left
-    bar_top = canvas_h - total_h - 100
-    bar_bot = canvas_h - 55
-    draw.rectangle([(12, bar_top), (40, bar_bot)], fill=(220, 30, 30))
+    bar_top = canvas_h - total_h - 80
+    bar_bot = canvas_h - 40
+    draw.rectangle([(12, bar_top), (38, bar_bot)], fill=(220, 30, 30))
 
 
 def generate_thumbnail(title: str, keywords: list[str], output_path: str) -> str:
@@ -166,7 +197,7 @@ def generate_thumbnail(title: str, keywords: list[str], output_path: str) -> str
     draw = ImageDraw.Draw(bg)
 
     try:
-        font_title = ImageFont.truetype(FONT_PATH, 80)
+        font_title = ImageFont.truetype(FONT_PATH, 65)
     except Exception:
         font_title = ImageFont.load_default()
 

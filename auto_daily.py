@@ -7,8 +7,6 @@ import sys
 import json
 import random
 import datetime
-import requests
-
 # Add project root to path
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -16,6 +14,7 @@ import config
 from main import run_pipeline
 from uploaders.youtube_upload import upload_video
 from generators.shorts_gen import cut_shorts
+from generators.topic_gen import pick_best_topic
 from shorts_queue import add_series_to_queue, queue_stats
 
 LOG_FILE = "logs/daily_log.json"
@@ -77,23 +76,9 @@ def _pick_topic(history: list[str]) -> str:
     if available:
         return random.choice(available)
 
-    # All seeds used — generate new topic with Ollama
-    prompt = """Generate ONE unique YouTube video topic for a history/mystery channel.
-Format: just the topic title, nothing else.
-Make it intriguing, specific, and different from common topics.
-Examples: "The Mysterious Death of Edgar Allan Poe", "How the Aztecs Built Tenochtitlan"
-Topic:"""
-
+    # All seeds used — use AI topic picker
     try:
-        resp = requests.post(
-            f"{config.OLLAMA_HOST}/api/generate",
-            json={"model": config.OLLAMA_MODEL, "prompt": prompt,
-                  "stream": False, "options": {"num_predict": 50}},
-            timeout=60
-        )
-        topic = resp.json()["response"].strip().strip('"').strip("'")
-        if len(topic) > 10:
-            return topic
+        return pick_best_topic()
     except Exception:
         pass
 
