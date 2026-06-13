@@ -5,6 +5,7 @@ Uploads exactly 1 pending Short from the queue, EP.1 first.
 import os
 import sys
 import json
+import time
 import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -50,29 +51,44 @@ def main():
         _log({"date": today, "status": "file_missing", "item": item})
         sys.exit(1)
 
-    try:
-        url = upload_video(
-            video_path=item["video_path"],
-            title=item["title"],
-            description=item["description"],
-            tags=item["tags"],
-            thumbnail_path=None,
-            privacy="public",
-        )
-        mark_uploaded(item["video_path"], url)
-        _log({
-            "date": today,
-            "status": "uploaded",
-            "title": item["title"],
-            "ep": item["ep"],
-            "series": item["series"],
-            "url": url,
-        })
-        print(f"\nSUCCESS: {url}")
-    except Exception as e:
-        _log({"date": today, "status": "upload_failed", "title": item["title"], "error": str(e)})
-        print(f"Upload failed: {e}")
+    upload_delays = [30, 60, 120]
+    last_err = None
+    url = None
+    for attempt in range(1, len(upload_delays) + 2):
+        try:
+            url = upload_video(
+                video_path=item["video_path"],
+                title=item["title"],
+                description=item["description"],
+                tags=item["tags"],
+                thumbnail_path=None,
+                privacy="public",
+            )
+            last_err = None
+            break
+        except Exception as e:
+            last_err = e
+            print(f"Upload attempt {attempt} failed: {e}")
+            if attempt <= len(upload_delays):
+                delay = upload_delays[attempt - 1]
+                print(f"Retrying in {delay}s...")
+                time.sleep(delay)
+
+    if last_err:
+        _log({"date": today, "status": "upload_failed", "title": item["title"], "error": str(last_err)})
+        print(f"All upload attempts failed: {last_err}")
         sys.exit(1)
+
+    mark_uploaded(item["video_path"], url)
+    _log({
+        "date": today,
+        "status": "uploaded",
+        "title": item["title"],
+        "ep": item["ep"],
+        "series": item["series"],
+        "url": url,
+    })
+    print(f"\nSUCCESS: {url}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import os
 import json
 import pickle
+import time
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,6 +10,9 @@ from google.auth.transport.requests import Request
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CLIENT_SECRETS = "client_secrets.json"
 TOKEN_FILE = "token.pickle"
+
+_REFRESH_RETRIES = 4
+_REFRESH_DELAYS = [15, 30, 60, 120]
 
 
 def _get_credentials():
@@ -19,7 +23,20 @@ def _get_credentials():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            last_err = None
+            for attempt, delay in enumerate((_REFRESH_DELAYS[:_REFRESH_RETRIES]), start=1):
+                try:
+                    creds.refresh(Request())
+                    last_err = None
+                    break
+                except Exception as e:
+                    last_err = e
+                    print(f"  Token refresh attempt {attempt} failed: {e}")
+                    if attempt < _REFRESH_RETRIES:
+                        print(f"  Retrying in {delay}s...")
+                        time.sleep(delay)
+            if last_err:
+                raise last_err
         else:
             flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS, SCOPES)
             creds = flow.run_local_server(port=8080, open_browser=True)
