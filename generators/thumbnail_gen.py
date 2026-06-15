@@ -179,17 +179,24 @@ def _draw_title(draw: ImageDraw.ImageDraw, title: str, font_title: ImageFont.Fre
 
 def generate_thumbnail(title: str, keywords: list[str], output_path: str) -> str:
     ai_prompt = _build_ai_prompt(title, keywords)
+    subject = _extract_subject(title)
+    pexels_kw = [subject] + keywords[:2]
 
-    bg = _fetch_pollinations_image(ai_prompt)
-
-    if bg is None:
-        print("  Falling back to Pexels...")
-        # use title-derived subject for better Pexels match
-        subject = _extract_subject(title)
-        pexels_kw = [subject] + keywords[:2]
-        bg = _fetch_pexels_image(pexels_kw)
+    # Pexels first — reliable, API-key based, no IP queue limits
+    print("  Fetching background from Pexels...")
+    bg = _fetch_pexels_image(pexels_kw)
 
     if bg is None:
+        # Pollinations second — retry once after brief wait (free tier queues by IP)
+        print("  Pexels failed, trying Pollinations (attempt 1)...")
+        bg = _fetch_pollinations_image(ai_prompt)
+        if bg is None:
+            print("  Pollinations attempt 1 failed, retrying in 15s...")
+            time.sleep(15)
+            bg = _fetch_pollinations_image(ai_prompt)
+
+    if bg is None:
+        print("  All sources failed — using gradient fallback.")
         bg = _dark_gradient_bg()
     else:
         bg = _apply_dark_overlay(bg)
