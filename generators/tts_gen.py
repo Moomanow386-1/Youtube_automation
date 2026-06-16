@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import subprocess
+import time
 import edge_tts
 import config
 
@@ -84,27 +85,36 @@ def generate_audio(script: str, audio_path: str, voice: str = None) -> tuple[str
     chunks = _split_chunks(script)
     print(f"  TTS: {len(chunks)} chunk(s)...")
 
+    _RETRY_DELAYS = [10, 30, 60]  # seconds between attempts for network/DNS errors
+
+    def _run_with_retry(text: str, path: str, label: str):
+        for attempt in range(len(_RETRY_DELAYS) + 1):
+            try:
+                asyncio.run(_synthesize(text, path, voice, rate))
+                return
+            except asyncio.TimeoutError:
+                if attempt == len(_RETRY_DELAYS):
+                    raise RuntimeError(f"{label} timed out after {attempt+1} attempts")
+                wait = _RETRY_DELAYS[attempt]
+                print(f"    timeout — wait {wait}s, retry {attempt+2}/{len(_RETRY_DELAYS)+1}")
+                time.sleep(wait)
+            except Exception as e:
+                if attempt == len(_RETRY_DELAYS):
+                    raise RuntimeError(f"{label} failed: {e}") from e
+                wait = _RETRY_DELAYS[attempt]
+                print(f"    error ({e}) — wait {wait}s, retry {attempt+2}/{len(_RETRY_DELAYS)+1}")
+                time.sleep(wait)
+
     if len(chunks) == 1:
-        asyncio.run(_synthesize(script, audio_path, voice, rate))
+        _run_with_retry(script, audio_path, "TTS chunk 1")
     else:
         base = audio_path.replace(".mp3", "")
         parts = []
         for i, chunk in enumerate(chunks):
             part = f"{base}_part{i}.mp3"
             print(f"    chunk {i+1}/{len(chunks)} ({len(chunk.split())} words)...")
-            for attempt in range(3):
-                try:
-                    asyncio.run(_synthesize(chunk, part, voice, rate))
-                    parts.append(part)
-                    break
-                except asyncio.TimeoutError:
-                    if attempt == 2:
-                        raise RuntimeError(f"TTS chunk {i+1} timed out after 3 attempts")
-                    print(f"    timeout — retry {attempt+2}/3")
-                except Exception as e:
-                    if attempt == 2:
-                        raise RuntimeError(f"TTS chunk {i+1} failed: {e}") from e
-                    print(f"    error ({e}) — retry {attempt+2}/3")
+            _run_with_retry(chunk, part, f"TTS chunk {i+1}")
+            parts.append(part)
         _concat_audio(parts, audio_path)
         for p in parts:
             if os.path.exists(p):
