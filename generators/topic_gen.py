@@ -64,10 +64,10 @@ Return ONLY this JSON on one line:
     raw = _ollama(prompt, max_tokens=150)
     return _parse_topic(raw)
 
-def generate_topics(n: int = 10) -> list[dict]:
+def generate_topics(n: int = 10, seed_avoid: list[str] | None = None) -> list[dict]:
     """Returns n topic dicts via n single-item calls."""
     topics = []
-    used = []
+    used = list(seed_avoid or [])
     for i in range(n):
         print(f"  Topic {i+1}/{n}...")
         t = _generate_one_topic(i, used)
@@ -77,9 +77,9 @@ def generate_topics(n: int = 10) -> list[dict]:
     topics.sort(key=lambda x: 0 if x.get("search_demand") == "high" else 1)
     return topics
 
-def pick_best_topic() -> str:
-    """Generate 10 topics, return the single best topic string."""
-    topics = generate_topics(10)
+def pick_best_topic(recent: list[str] | None = None) -> str:
+    """Generate 10 topics avoiding recent ones, return the single best topic string."""
+    topics = generate_topics(10, seed_avoid=recent or [])
     best = topics[0]
     print(f"\n  Best topic: {best['topic']}")
     print(f"  Search demand: {best['search_demand']}")

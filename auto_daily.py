@@ -76,9 +76,9 @@ def _pick_topic(history: list[str]) -> str:
     if available:
         return random.choice(available)
 
-    # All seeds used — use AI topic picker
+    # All seeds used — use AI topic picker (pass history so it avoids recent topics)
     try:
-        return pick_best_topic()
+        return pick_best_topic(recent=history[-20:])
     except Exception:
         pass
 
@@ -110,6 +110,10 @@ def main():
     history = _load_history()
     topic = _pick_topic(history)
     print(f"Today's topic: {topic}\n")
+
+    # Save topic immediately so re-runs and failed uploads don't pick it again
+    history.append(topic)
+    _save_history(history)
 
     try:
         video_path, thumb_path = run_pipeline(topic)
@@ -145,8 +149,6 @@ def main():
             privacy="public"
         )
         _log({"date": today, "topic": topic, "status": "uploaded", "url": url})
-        history.append(topic)
-        _save_history(history)
         print(f"\nSUCCESS: {url}")
     except Exception as e:
         _log({"date": today, "topic": topic, "status": "upload_failed",
