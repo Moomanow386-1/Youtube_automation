@@ -143,7 +143,7 @@ def _shorten_for_thumbnail(title: str) -> str:
 def _draw_title(draw: ImageDraw.ImageDraw, title: str, font_title: ImageFont.FreeTypeFont,
                 canvas_w: int, canvas_h: int):
     short_text = _shorten_for_thumbnail(title).upper()
-    max_text_w = canvas_w - 100
+    max_text_w = canvas_w - 240  # 120px margin each side prevents edge clipping
     lines = _wrap_title(short_text, font_title, max_text_w)
 
     # hard cap at 2 lines
@@ -204,7 +204,7 @@ def generate_thumbnail(title: str, keywords: list[str], output_path: str) -> str
     draw = ImageDraw.Draw(bg)
 
     try:
-        font_title = ImageFont.truetype(FONT_PATH, 65)
+        font_title = ImageFont.truetype(FONT_PATH, 58)
     except Exception:
         font_title = ImageFont.load_default()
 
