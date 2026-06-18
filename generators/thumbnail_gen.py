@@ -119,25 +119,52 @@ def _wrap_title(title: str, font: ImageFont.FreeTypeFont, max_width: int) -> lis
 
 
 def _shorten_for_thumbnail(title: str) -> str:
-    """Extract a punchy 4-6 word phrase from the title for the thumbnail."""
-    # remove common filler endings
-    title = re.sub(
-        r"\s*(Nobody Talks About|You've Never Heard|Nobody Tells You|What They Don't Want You To Know"
-        r"|and What It Means Today|The Full Story|Explained|Documentary)\s*",
-        "", title, flags=re.IGNORECASE
-    ).strip()
-    words = title.split()
-    if len(words) <= 5:
-        return title
-    # prefer keeping power words near the front
-    power = ["SHOCKING", "DARK", "REAL", "TERRIFYING", "HIDDEN", "SECRET",
-             "TRUTH", "REALLY", "CHILLING", "DISTURBING", "UNTOLD", "FORGOTTEN"]
-    # try to find a natural break at 4-5 words that includes a power word
-    for end in [5, 4, 6]:
-        candidate = " ".join(words[:end])
-        if any(p in candidate.upper() for p in power):
-            return candidate
-    return " ".join(words[:5])
+    """Extract the subject of the video (not the clickbait opener) for the thumbnail."""
+    # Titles with colon — subject is before it (e.g. "The BLACK DEATH: What REALLY...")
+    if ":" in title:
+        before = title.split(":")[0].strip()
+        if 2 <= len(before.split()) <= 6:
+            return before
+
+    # Strip clickbait opener to reveal the subject
+    opener_patterns = [
+        r"^What REALLY Happened (to|in|at|about)\s+",
+        r"^The (SHOCKING|DARK|TERRIFYING|CHILLING|REAL|HIDDEN|UNTOLD) (Truth|Secret|Story) (About|Behind|Of|In)\s+(the |a |an )?",
+        r"^The (SHOCKING|REAL) (Execution|Assassin) of (a |an |the )?\s*",
+        r"^The Terrifying Secret of (the |a |an )?\s*",
+        r"^The (SHOCKING|DARK|REAL|HIDDEN) (Truth|Secret) (About|Behind)\s+",
+    ]
+    subject = title
+    for p in opener_patterns:
+        m = re.match(p, subject, re.IGNORECASE)
+        if m:
+            subject = subject[m.end():].strip()
+            break
+
+    # Strip trailing filler
+    subject = re.sub(
+        r"\s*(Nobody Talks About|Nobody Tells You|You'?ve Never Heard"
+        r"|What They Don't Want You To Know|and What It Means Today"
+        r"|The Full Story|Explained|Documentary|The Hidden Truth|The Real Story"
+        r"|The Dark Story|NO ONE Wants|No One Wants|and the Rise.*|and What.*).*$",
+        "", subject, flags=re.IGNORECASE
+    ).strip(" ,-.'\"?")
+
+    # Fallback: if subject is empty or unchanged, use original title stripped
+    if not subject or subject.lower() == title.lower():
+        subject = re.sub(
+            r"\s*(Nobody Talks About|Nobody Tells You|Explained|Documentary)\s*",
+            "", title, flags=re.IGNORECASE
+        ).strip()
+
+    # Cap at 5 words, avoid ending on articles/prepositions/conjunctions
+    _stop = {"the", "a", "an", "of", "in", "at", "to", "by", "and", "or", "for", "with"}
+    words = subject.split()
+    if len(words) > 5:
+        words = words[:5]
+        while words and words[-1].lower().rstrip(",'") in _stop:
+            words = words[:-1]
+    return " ".join(words) if words else subject
 
 
 def _draw_title(draw: ImageDraw.ImageDraw, title: str, font_title: ImageFont.FreeTypeFont,
