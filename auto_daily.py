@@ -58,14 +58,14 @@ SEED_TOPICS = [
 
 def _load_history() -> list[str]:
     if os.path.exists(TOPIC_HISTORY_FILE):
-        with open(TOPIC_HISTORY_FILE, "r") as f:
+        with open(TOPIC_HISTORY_FILE, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     return []
 
 
 def _save_history(history: list[str]):
     os.makedirs(os.path.dirname(TOPIC_HISTORY_FILE), exist_ok=True)
-    with open(TOPIC_HISTORY_FILE, "w") as f:
+    with open(TOPIC_HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history[-60:], f, indent=2)
 
 
@@ -92,10 +92,10 @@ def _log(entry: dict):
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     log = []
     if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "r") as f:
+        with open(LOG_FILE, "r", encoding="utf-8-sig") as f:
             log = json.load(f)
     log.append(entry)
-    with open(LOG_FILE, "w") as f:
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
         json.dump(log[-90:], f, indent=2)
 
 
