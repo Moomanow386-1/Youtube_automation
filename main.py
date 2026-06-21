@@ -76,6 +76,11 @@ def run_pipeline(topic: str):
     print(f"  Script:    {script_file}")
     print(f"{'='*60}\n")
 
+    # Copy SRT to output before cleanup (needed for shorts subtitle burning)
+    srt_output_path = os.path.join(config.OUTPUT_DIR, f"{slug}_subtitles.srt")
+    if os.path.exists(srt_path):
+        shutil.copy2(srt_path, srt_output_path)
+
     # Clean temp files (retry on Windows file-lock)
     if os.path.exists(config.TEMP_DIR):
         for attempt in range(5):
@@ -86,7 +91,7 @@ def run_pipeline(topic: str):
                 time.sleep(2)
         os.makedirs(config.TEMP_DIR, exist_ok=True)
 
-    return video_path, thumb_path
+    return video_path, thumb_path, srt_output_path
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

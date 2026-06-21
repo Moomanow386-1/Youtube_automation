@@ -116,7 +116,7 @@ def main():
     _save_history(history)
 
     try:
-        video_path, thumb_path = run_pipeline(topic)
+        video_path, thumb_path, srt_path = run_pipeline(topic)
     except Exception as e:
         _log({"date": today, "topic": topic, "status": "pipeline_failed", "error": str(e)})
         print(f"Pipeline failed: {e}")
@@ -163,7 +163,7 @@ def main():
 
     shorts_dir = os.path.join(config.OUTPUT_DIR, "shorts")
     try:
-        short_paths = cut_shorts(video_path, shorts_dir)
+        short_paths = cut_shorts(video_path, shorts_dir, srt_path=srt_path)
         added = add_series_to_queue(short_paths, title, description, tags)
         stats = queue_stats()
         _log({"date": today, "topic": topic, "status": "shorts_queued",
