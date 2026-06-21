@@ -163,7 +163,7 @@ def main():
 
     shorts_dir = os.path.join(config.OUTPUT_DIR, "shorts")
     try:
-        short_paths = cut_shorts(video_path, shorts_dir, srt_path=srt_path)
+        short_paths = cut_shorts(video_path, shorts_dir, srt_path=srt_path, series_title=title)
         added = add_series_to_queue(short_paths, title, description, tags)
         stats = queue_stats()
         _log({"date": today, "topic": topic, "status": "shorts_queued",
