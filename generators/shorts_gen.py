@@ -12,6 +12,7 @@ SHORTS_HEIGHT = 1920
 MIN_CHUNK = 45    # 0:45
 MAX_CHUNK = 58    # 0:58 — stays under YouTube's 60s Shorts sweet spot
 TARGET_CHUNK = 52  # 0:52
+MAX_EPISODES = 10  # cap series length — beyond 10 EP drop-off spikes
 HOOK_DURATION = 3.0  # seconds the hook PNG is visible (for log info only — PNG shown full duration)
 
 # Subtitle style burned into shorts
@@ -152,6 +153,10 @@ def _calc_n_chunks(total: float) -> tuple[int, float]:
 
     while chunk < MIN_CHUNK and n > 1:
         n -= 1
+        chunk = total / n
+
+    if n > MAX_EPISODES:
+        n = MAX_EPISODES
         chunk = total / n
 
     return n, chunk
