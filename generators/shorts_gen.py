@@ -12,7 +12,7 @@ SHORTS_HEIGHT = 1920
 MIN_CHUNK = 45    # 0:45
 MAX_CHUNK = 58    # 0:58 — stays under YouTube's 60s Shorts sweet spot
 TARGET_CHUNK = 52  # 0:52
-HOOK_DURATION = 3.0  # seconds to show episode hook overlay on EP.2+
+HOOK_DURATION = 3.0  # seconds the hook PNG is visible (for log info only — PNG shown full duration)
 
 # Subtitle style burned into shorts
 _SUB_STYLE = (
@@ -23,6 +23,9 @@ _SUB_STYLE = (
     "Outline=3,Shadow=1,"
     "Alignment=2,MarginV=60"
 )
+
+_HOOK_FONT_BOLD = r"C:\Windows\Fonts\arialbd.ttf"
+_HOOK_FONT_REG  = r"C:\Windows\Fonts\arial.ttf"
 
 
 # ── SRT helpers ────────────────────────────────────────────────────────────────
@@ -81,39 +84,45 @@ def _escape_filter_path(path: str) -> str:
     return path.replace("\\", "/").replace(":", "\\:")
 
 
-def _escape_drawtext(text: str) -> str:
-    return (text
-        .replace("\\", "\\\\")
-        .replace("'", "\\'")
-        .replace(":", "\\:")
-        .replace(",", "\\,")
-        .replace("[", "\\[")
-        .replace("]", "\\]")
-    )
+# ── Hook PNG (PIL) — bypasses fontconfig entirely ──────────────────────────────
 
+def _make_hook_png(ep: int, total: int, series_title: str, out_path: str) -> bool:
+    """Create a semi-transparent 'Part X of Y' banner PNG using PIL. Returns False on failure."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
 
-def _hook_filters(ep: int, total: int, series_title: str) -> str:
-    """drawtext overlay for first HOOK_DURATION seconds — gives EP.2+ context."""
-    part_text = _escape_drawtext(f"Part {ep} of {total}")
-    title_short = series_title[:38] + ("..." if len(series_title) > 38 else "")
-    title_text = _escape_drawtext(title_short)
-    enable = f"between(t,0,{HOOK_DURATION})"
+        w, h = SHORTS_WIDTH, 220
+        img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
 
-    dt1 = (
-        f"drawtext=text='{part_text}'"
-        f":x=(w-text_w)/2:y=h*0.38"
-        f":fontsize=72:fontcolor=white"
-        f":box=1:boxcolor=0x000000@0.65:boxborderw=20"
-        f":enable='{enable}'"
-    )
-    dt2 = (
-        f"drawtext=text='{title_text}'"
-        f":x=(w-text_w)/2:y=h*0.38+110"
-        f":fontsize=36:fontcolor=yellow"
-        f":box=1:boxcolor=0x000000@0.65:boxborderw=12"
-        f":enable='{enable}'"
-    )
-    return f"{dt1},{dt2}"
+        # Semi-transparent black background
+        draw.rectangle([0, 0, w, h], fill=(0, 0, 0, 170))
+
+        # Load fonts; fall back to default if file missing
+        try:
+            font_large = ImageFont.truetype(_HOOK_FONT_BOLD, 72)
+        except Exception:
+            font_large = ImageFont.load_default()
+        try:
+            font_small = ImageFont.truetype(_HOOK_FONT_REG, 36)
+        except Exception:
+            font_small = ImageFont.load_default()
+
+        part_text = f"Part {ep} of {total}"
+        bbox = draw.textbbox((0, 0), part_text, font=font_large)
+        tw = bbox[2] - bbox[0]
+        draw.text(((w - tw) // 2, 10), part_text, fill=(255, 255, 255, 255), font=font_large)
+
+        title_short = series_title[:38] + ("..." if len(series_title) > 38 else "")
+        bbox2 = draw.textbbox((0, 0), title_short, font=font_small)
+        tw2 = bbox2[2] - bbox2[0]
+        draw.text(((w - tw2) // 2, 100), title_short, fill=(255, 220, 0, 255), font=font_small)
+
+        img.save(out_path, "PNG")
+        return True
+    except Exception as e:
+        print(f"  [hook png] failed: {e}")
+        return False
 
 
 # ── Duration helpers ───────────────────────────────────────────────────────────
@@ -159,7 +168,7 @@ def cut_shorts(
     """
     Cut landscape video into vertical YouTube Shorts (1080x1920, ~52s each).
     - Burns subtitles if srt_path provided.
-    - Adds 3s hook overlay on EP.2+ if series_title provided.
+    - EP.2+: adds PIL-rendered hook PNG overlay (bypasses fontconfig).
     Returns list of output file paths.
     """
     os.makedirs(output_dir, exist_ok=True)
@@ -177,7 +186,7 @@ def cut_shorts(
     if burn_subs:
         print(f"  Subtitles: burning ({len(srt_entries)} cues)")
     if series_title:
-        print(f"  Hook overlay: EP.2+ will show context for {HOOK_DURATION:.0f}s")
+        print(f"  Hook overlay: EP.2+ PNG banner ({n_chunks - 1} clips)")
 
     base = os.path.splitext(os.path.basename(video_path))[0]
     outputs = []
@@ -188,39 +197,84 @@ def cut_shorts(
         chunk_end = start + chunk_dur
         out_path = os.path.join(output_dir, f"{base}_short_{ep:02d}.mp4")
 
-        vf_parts = [
-            "crop=ih*9/16:ih:(iw-ih*9/16)/2:0",
-            f"scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:flags=lanczos",
-            "setsar=1",
-        ]
-
+        # Write chunk SRT if needed
         chunk_srt = None
         if burn_subs:
             chunk_srt = os.path.join(output_dir, f"_chunk_{ep:02d}.srt")
             _write_chunk_srt(srt_entries, start, chunk_end, chunk_srt)
-            srt_esc = _escape_filter_path(os.path.abspath(chunk_srt))
-            vf_parts.append(f"subtitles='{srt_esc}':force_style='{_SUB_STYLE}'")
 
-        if ep > 1 and series_title:
-            vf_parts.append(_hook_filters(ep, n_chunks, series_title))
+        use_hook = (ep > 1 and series_title)
 
-        vf = ",".join(vf_parts)
+        if use_hook:
+            # ── EP.2+: PIL hook PNG + overlay via filter_complex ──────────────
+            hook_png = os.path.join(output_dir, f"_hook_{ep:02d}.png")
+            has_hook = _make_hook_png(ep, n_chunks, series_title, hook_png)
 
-        cmd = [
-            FFMPEG, "-y",
-            "-ss", str(start),
-            "-i", video_path,
-            "-t", str(chunk_dur),
-            "-vf", vf,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "128k",
-            "-movflags", "+faststart",
-            out_path
-        ]
+            if has_hook:
+                # Build filter_complex: crop/scale/subs on input 0, overlay hook from input 1
+                base_filters = (
+                    f"[0:v]crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
+                    f"scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:flags=lanczos,setsar=1"
+                )
+                if burn_subs and chunk_srt:
+                    srt_esc = _escape_filter_path(os.path.abspath(chunk_srt))
+                    base_filters += f",subtitles='{srt_esc}':force_style='{_SUB_STYLE}'"
+                base_filters += "[vid]"
+
+                # Overlay PNG at ~35% from top; no enable= needed — shown full duration
+                hook_y = int(SHORTS_HEIGHT * 0.35)
+                fc = f"{base_filters};[vid][1:v]overlay=0:{hook_y}:shortest=1[vout]"
+
+                cmd = [
+                    FFMPEG, "-y",
+                    "-ss", str(start), "-i", video_path,
+                    "-loop", "1", "-i", hook_png,
+                    "-t", str(chunk_dur),
+                    "-filter_complex", fc,
+                    "-map", "[vout]",
+                    "-map", "0:a",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-movflags", "+faststart",
+                    out_path
+                ]
+            else:
+                # Hook PNG failed — fall back to simple vf without hook
+                use_hook = False
+
+        if not use_hook:
+            # ── EP.1 or no hook: simple -vf chain ────────────────────────────
+            vf_parts = [
+                "crop=ih*9/16:ih:(iw-ih*9/16)/2:0",
+                f"scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:flags=lanczos",
+                "setsar=1",
+            ]
+            if burn_subs and chunk_srt:
+                srt_esc = _escape_filter_path(os.path.abspath(chunk_srt))
+                vf_parts.append(f"subtitles='{srt_esc}':force_style='{_SUB_STYLE}'")
+
+            vf = ",".join(vf_parts)
+            cmd = [
+                FFMPEG, "-y",
+                "-ss", str(start),
+                "-i", video_path,
+                "-t", str(chunk_dur),
+                "-vf", vf,
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                out_path
+            ]
+
         result = subprocess.run(cmd, capture_output=True, text=True)
 
+        # Cleanup temp files
         if chunk_srt and os.path.exists(chunk_srt):
             os.remove(chunk_srt)
+        if use_hook:
+            hook_png_path = os.path.join(output_dir, f"_hook_{ep:02d}.png")
+            if os.path.exists(hook_png_path):
+                os.remove(hook_png_path)
 
         if result.returncode != 0:
             print(f"  [short {ep}] ffmpeg error: {result.stderr[-300:]}")
